@@ -1,0 +1,218 @@
+#!/usr/bin/env node
+
+const http = require("http");
+const https = require("https");
+const popCore = require('@alicloud/pop-core');
+const cron = require("node-cron");
+const momentTimezone = require("moment-timezone");
+
+const ipLookupService = process.env.IP_LOOKUP_SERVICE || "https://bot.whatismyipaddress.com";
+const ipLookupTimeout = parseInt(process.env.IP_LOOKUP_TIMEOUT) || 3000;
+const domain = process.env.DOMAIN;
+const subDomain = process.env.SUB_DOMAIN;
+const timezone = process.env.TIMEZONE || "Etc/UTC";
+const cronExpression = process.env.CRON;
+const cronEnabled = typeof cronExpression !== "undefined" || cron.validate(cronExpression);
+
+const popCoreConfig = {
+    /** @see https://help.aliyun.com/document_detail/124923.html#title-fbv-si0-ict */
+    accessKeyId: process.env.AK_ID,
+    accessKeySecret: process.env.AK_SECRET,
+    endpoint: "https://alidns.aliyuncs.com",
+    apiVersion: "2015-01-09"
+};
+
+const updateType = (() => {
+    switch (process.env.UPDATE_V6) {
+        case "ENABLED":
+            return ["A", "AAAA"];
+        case "ONLY":
+            return ["AAAA"];
+        default:
+            return ["A"];
+    }
+})();
+
+const currentIp = (v6 = false) => {
+    return new Promise((resolve, reject) => {
+        let request = (() => {
+            switch (new URL(ipLookupService).protocol) {
+                case "http:":
+                    return http;
+                case "https:":
+                    return https;
+            }
+        })().get(ipLookupService, {
+            family: v6 ? 6 : 4,
+            timeout: ipLookupTimeout
+        }, response => {
+            let responseData = "";
+            response.on("data", chunk => responseData += chunk);
+            response.on("end", () => resolve(responseData.trim()));
+        });
+        request.on("error", err => reject(err));
+        request.on("timeout", request.destroy);
+    });
+};
+
+const addRecord = (type = "A", value) => {
+    return new Promise((resolve, reject) => {
+        new popCore(popCoreConfig).request("AddDomainRecord", {
+            DomainName: domain,
+            RR: subDomain ? subDomain : "@",
+            Type: type,
+            Value: value
+        }, {method: "POST"}).then(aliyunApiResult => {
+            /**
+             * @external aliyunApiResult.RecordId
+             * @see https://help.aliyun.com/document_detail/29772.html
+             */
+            resolve(aliyunApiResult.RecordId);
+        }, reject);
+    });
+};
+
+const updateRecord = (recordId = "", type = "A", value) => {
+    return new Promise((resolve, reject) => {
+        new popCore(popCoreConfig).request("UpdateDomainRecord", {
+            RR: subDomain ? subDomain : "@",
+            RecordId: recordId,
+            Type: type,
+            Value: value
+        }, {method: "POST"}).then(() => {
+            resolve();
+        }, reject);
+    });
+}
+
+const log = (text = "") => {
+    if (cronEnabled) {
+        console.log(`[${momentTimezone(new Date()).tz(timezone).format("YYYY-MM-DD H:mm:ss")}] ${text}`);
+    } else {
+        console.log(text);
+    }
+};
+
+const aliyunExceptionHandler = aliyunApiException => {
+    /**
+     * @external aliyunApiException.name
+     * @see https://help.aliyun.com/document_detail/29809.htm
+     */
+    switch (aliyunApiException.name) {
+        case "InvalidAccessKeyId.NotFound":
+            log("Error from Aliyun's API endpoint: Invalid accessKeyId.");
+            break;
+        case "SignatureDoesNotMatchError":
+            log("Error from Aliyun's API endpoint: Signature does not match (wrong AK secret).");
+            break;
+        default:
+            /** @external aliyunApiException.data */
+            /**
+             * @member Message
+             * @memberOf aliyunApiException.data
+             */
+            log(`Error from Aliyun's API endpoint. (Detail: ${aliyunApiException.data.Message})`);
+    }
+}
+
+const verifyUpdate = (type = "A") => {
+    new popCore(popCoreConfig).request("DescribeSubDomainRecords", {
+        DomainName: domain,
+        SubDomain: `${subDomain ? subDomain + "." : ""}${domain}`,
+        Type: type
+    }, {method: "POST"}).then(async aliyunApiResult => {
+        /**
+         * @external aliyunApiResult.TotalCount
+         * @see https://help.aliyun.com/document_detail/29778.html
+         */
+        switch (aliyunApiResult.TotalCount) {
+            case 0:
+                log(`No ${type} record is defined with subdomain "${subDomain ? subDomain : "@"}". Creating ...`);
+                currentIp(type === "AAAA").then(currentIpAddr => {
+                    log(`Current ${type === "AAAA" ? "IPv6" : "IPv4"} address is ${currentIpAddr}.`);
+                    addRecord(type, currentIpAddr)
+                        .then(recordId => log(`Created record with RecordId = ${recordId}.`))
+                        .catch(aliyunExceptionHandler);
+                }).catch(() => {
+                    switch (type) {
+                        case "A":
+                            log("Unable to lookup current IPv4 address. Failed to create A record.");
+                            break;
+                        case "AAAA":
+                            log("Unable to lookup current IPv6 address. Failed to create AAAA record. " +
+                                "(Do you have a working IPv6 stack?)");
+                            break;
+                    }
+                });
+                break;
+            case 1:
+                /** @external aliyunApiResult.DomainRecords */
+                /**
+                 * @member Record
+                 * @memberOf aliyunApiResult.DomainRecords
+                 * @see https://help.aliyun.com/document_detail/29778.html
+                 */
+                let recordId = aliyunApiResult.DomainRecords.Record[0].RecordId;
+                let recordValue = aliyunApiResult.DomainRecords.Record[0].Value;
+                log(
+                    `Found current record with `
+                    + `RecordId = ${recordId}, `
+                    + `Type = ${type}, `
+                    + `SubDomain = ${subDomain ? subDomain : "@"}, `
+                    + `Value = ${recordValue}.`
+                );
+                currentIp(type === "AAAA").then(currentIpAddr => {
+                    let needUpdate = recordValue !== currentIpAddr;
+                    log(`Current ${
+                        type === "AAAA" ? "IPv6" : "IPv4"
+                    } address is ${currentIpAddr}, ${needUpdate ? "updating ..." : "do nothing."}`);
+                    updateRecord(recordId, type, currentIpAddr)
+                        .then(() => log(`Record updated from ${recordValue} to ${currentIpAddr}.`))
+                        .catch(aliyunExceptionHandler);
+                }).catch(() => {
+                    switch (type) {
+                        case "A":
+                            log("Unable to lookup current IPv4 address. Failed to update A record.");
+                            break;
+                        case "AAAA":
+                            log("Unable to lookup current IPv6 address. Failed to update AAAA record. " +
+                                "(Do you have a working IPv6 stack?)");
+                            break;
+                    }
+                });
+                break;
+            default:
+                log(`More than one ${type} record is defined with subdomain "${subDomain ? subDomain : "@"}". `
+                    + "Please check and keep only one or we won't know which one to update otherwise."
+                );
+                break;
+        }
+    }, aliyunExceptionHandler);
+}
+
+if (typeof domain === "undefined" || domain === "") {
+    log("Domain not provided.");
+    process.exit(1);
+}
+
+["accessKeyId", "accessKeySecret"].forEach(item => {
+    if (typeof popCoreConfig[item] === "undefined" || popCoreConfig[item] === "") {
+        log(`${item} not provided.`);
+        process.exit(1);
+    }
+});
+
+if (cronEnabled) {
+    updateType.forEach(type => cron.schedule(cronExpression, () => {
+        verifyUpdate(type);
+    }, {
+        scheduled: true,
+        timezone: timezone
+    }));
+    log(`Cron task scheduled at "${cronExpression}".`);
+} else {
+    log("Invalid cron expression.");
+    process.exit(2);
+}
+
+updateType.forEach(verifyUpdate);

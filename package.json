@@ -1,0 +1,28 @@
+{
+  "name": "aliyun-ddns-updater",
+  "version": "0.0.1",
+  "description": "A DDNS client for Aliyun's DNS service.",
+  "main": "aliyun-ddns-updater",
+  "dependencies": {
+    "@alicloud/pop-core": "^1.7.10",
+    "minimist": "^1.2.5",
+    "moment-timezone": "^0.5.33",
+    "node-cron": "^3.0.0"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hehongbo/aliyun-ddns-updater.git"
+  },
+  "keywords": [
+    "DNS",
+    "DDNS",
+    "Aliyun"
+  ],
+  "author": "Hongbo He",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hehongbo/aliyun-ddns-updater/issues"
+  },
+  "homepage": "https://github.com/hehongbo/aliyun-ddns-updater#readme"
+}
