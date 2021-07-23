@@ -166,9 +166,11 @@ const verifyUpdate = (type = "A") => {
                     log(`Current ${
                         type === "AAAA" ? "IPv6" : "IPv4"
                     } address is ${currentIpAddr}, ${needUpdate ? "updating ..." : "do nothing."}`);
-                    updateRecord(recordId, type, currentIpAddr)
-                        .then(() => log(`Record updated from ${recordValue} to ${currentIpAddr}.`))
-                        .catch(aliyunExceptionHandler);
+                    if (needUpdate) {
+                        updateRecord(recordId, type, currentIpAddr)
+                            .then(() => log(`Record updated from ${recordValue} to ${currentIpAddr}.`))
+                            .catch(aliyunExceptionHandler);
+                    }
                 }).catch(() => {
                     switch (type) {
                         case "A":
