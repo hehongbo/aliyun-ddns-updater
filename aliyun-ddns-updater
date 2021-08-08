@@ -107,7 +107,7 @@ const aliyunExceptionHandler = aliyunApiException => {
      * @see https://help.aliyun.com/document_detail/29809.htm
      */
     switch (aliyunApiException.name) {
-        case "InvalidAccessKeyId.NotFound":
+        case "InvalidAccessKeyId.NotFoundError":
             log("Error from Aliyun's API endpoint: Invalid accessKeyId.");
             break;
         case "SignatureDoesNotMatchError":
@@ -119,7 +119,12 @@ const aliyunExceptionHandler = aliyunApiException => {
              * @member Message
              * @memberOf aliyunApiException.data
              */
-            log(`Error from Aliyun's API endpoint. (Detail: ${aliyunApiException.data.Message})`);
+            log(`Error from Aliyun's API endpoint. ${
+                typeof aliyunApiException.data !== "undefined" 
+                && typeof aliyunApiException.data.Message !== "undefined" ?
+                    `(Detail: ${aliyunApiException.data.Message})`
+                    : ""
+            }`);
     }
 }
 
