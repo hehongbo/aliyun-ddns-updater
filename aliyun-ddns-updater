@@ -2,6 +2,7 @@
 
 const http = require("http");
 const https = require("https");
+const net = require("net");
 const popCore = require('@alicloud/pop-core');
 const cron = require("node-cron");
 const momentTimezone = require("moment-timezone");
@@ -48,7 +49,14 @@ const currentIp = (v6 = false) => {
         }, response => {
             let responseData = "";
             response.on("data", chunk => responseData += chunk);
-            response.on("end", () => resolve(responseData.trim()));
+            response.on("end", () => {
+                let address = responseData.trim();
+                if ((!v6 && net.isIPv4(address)) || (v6 && net.isIPv6(address))) {
+                    resolve(address);
+                } else {
+                    reject();
+                }
+            });
         });
         request.on("error", err => reject(err));
         request.on("timeout", request.destroy);
