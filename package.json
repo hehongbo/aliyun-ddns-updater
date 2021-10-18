@@ -1,6 +1,6 @@
 {
   "name": "aliyun-ddns-updater",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A DDNS client for Aliyun's DNS service.",
   "main": "aliyun-ddns-updater",
   "dependencies": {
@@ -19,6 +19,12 @@
     "DDNS",
     "Aliyun"
   ],
+  "files": [
+    "aliyun-ddns-updater"
+  ],
+  "bin": {
+    "aliyun-ddns-updater": "aliyun-ddns-updater"
+  },
   "author": "Hongbo He",
   "license": "MIT",
   "bugs": {

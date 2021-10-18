@@ -4,23 +4,19 @@ A DDNS client for Aliyun's DNS service. It will look for the device's public IP 
 
 ## Usage
 
-Grab the code and install dependencies:
-
+Install:
 ```shell
-git clone https://github.com/hehongbo/aliyun-ddns-updater.git
-cd aliyun-ddns-updater
-npm install
+npm install -g aliyun-ddns-updater
 ```
 
 Then run:
-
 ```shell
 DOMAIN=example.com \
 SUB_DOMAIN=ddns \
 AK_ID=(accessKeyId) \
 AK_SECRET=(accessKeySecret) \
 CRON="0 * * * *" \
-./aliyun-ddns-updater
+aliyun-ddns-updater
 ```
 
 Or, with Docker:
