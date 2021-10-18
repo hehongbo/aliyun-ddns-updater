@@ -95,7 +95,7 @@ const updateRecord = (recordId = "", type = "A", value) => {
 
 const log = (text = "") => {
     if (cronEnabled) {
-        console.log(`[${momentTimezone(new Date()).tz(timezone).format("YYYY-MM-DD H:mm:ss")}] ${text}`);
+        console.log(`[${momentTimezone(new Date()).tz(timezone).format("YYYY-MM-DD HH:mm:ss")}] ${text}`);
     } else {
         console.log(text);
     }
