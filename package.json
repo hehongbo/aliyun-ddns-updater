@@ -1,12 +1,13 @@
 {
   "name": "aliyun-ddns-updater",
-  "version": "0.0.2",
+  "type": "module",
+  "version": "1.0.0",
   "description": "A DDNS client for Aliyun's DNS service.",
   "main": "aliyun-ddns-updater",
   "dependencies": {
     "@alicloud/pop-core": "^1.7.10",
     "minimist": "^1.2.5",
-    "moment-timezone": "^0.5.33",
+    "moment-timezone": "^0.5.34",
     "node-cron": "^3.0.0"
   },
   "devDependencies": {},
@@ -20,10 +21,14 @@
     "Aliyun"
   ],
   "files": [
-    "aliyun-ddns-updater"
+    "index.mjs",
+    "current-ip.mjs",
+    "record.mjs",
+    "log.mjs",
+    "config.mjs"
   ],
   "bin": {
-    "aliyun-ddns-updater": "aliyun-ddns-updater"
+    "aliyun-ddns-updater": "index.mjs"
   },
   "author": "Hongbo He",
   "license": "MIT",

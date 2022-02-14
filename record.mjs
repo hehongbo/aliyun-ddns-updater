@@ -1,107 +1,14 @@
-#!/usr/bin/env node
+import popCore from "@alicloud/pop-core";
+import {currentIp} from "./current-ip.mjs";
+import {log} from "./log.mjs";
 
-const http = require("http");
-const https = require("https");
-const net = require("net");
-const popCore = require('@alicloud/pop-core');
-const cron = require("node-cron");
-const momentTimezone = require("moment-timezone");
+import {
+    domain,
+    subDomain,
+    popCoreConfig
+} from "./config.mjs"
 
-const ipLookupService = process.env.IP_LOOKUP_SERVICE || "https://bot.whatismyipaddress.com";
-const ipLookupTimeout = parseInt(process.env.IP_LOOKUP_TIMEOUT) || 3000;
-const domain = process.env.DOMAIN;
-const subDomain = process.env.SUB_DOMAIN;
-const timezone = process.env.TIMEZONE || "Etc/UTC";
-const cronExpression = process.env.CRON;
-const cronEnabled = typeof cronExpression !== "undefined" || cron.validate(cronExpression);
-
-const popCoreConfig = {
-    /** @see https://help.aliyun.com/document_detail/124923.html#title-fbv-si0-ict */
-    accessKeyId: process.env.AK_ID,
-    accessKeySecret: process.env.AK_SECRET,
-    endpoint: "https://alidns.aliyuncs.com",
-    apiVersion: "2015-01-09"
-};
-
-const updateType = (() => {
-    switch (process.env.UPDATE_V6) {
-        case "ENABLED":
-            return ["A", "AAAA"];
-        case "ONLY":
-            return ["AAAA"];
-        default:
-            return ["A"];
-    }
-})();
-
-const currentIp = (v6 = false) => {
-    return new Promise((resolve, reject) => {
-        let request = (() => {
-            switch (new URL(ipLookupService).protocol) {
-                case "http:":
-                    return http;
-                case "https:":
-                    return https;
-            }
-        })().get(ipLookupService, {
-            family: v6 ? 6 : 4,
-            timeout: ipLookupTimeout
-        }, response => {
-            let responseData = "";
-            response.on("data", chunk => responseData += chunk);
-            response.on("end", () => {
-                let address = responseData.trim();
-                if ((!v6 && net.isIPv4(address)) || (v6 && net.isIPv6(address))) {
-                    resolve(address);
-                } else {
-                    reject();
-                }
-            });
-        });
-        request.on("error", err => reject(err));
-        request.on("timeout", request.destroy);
-    });
-};
-
-const addRecord = (type = "A", value) => {
-    return new Promise((resolve, reject) => {
-        new popCore(popCoreConfig).request("AddDomainRecord", {
-            DomainName: domain,
-            RR: subDomain ? subDomain : "@",
-            Type: type,
-            Value: value
-        }, {method: "POST"}).then(aliyunApiResult => {
-            /**
-             * @external aliyunApiResult.RecordId
-             * @see https://help.aliyun.com/document_detail/29772.html
-             */
-            resolve(aliyunApiResult.RecordId);
-        }, reject);
-    });
-};
-
-const updateRecord = (recordId = "", type = "A", value) => {
-    return new Promise((resolve, reject) => {
-        new popCore(popCoreConfig).request("UpdateDomainRecord", {
-            RR: subDomain ? subDomain : "@",
-            RecordId: recordId,
-            Type: type,
-            Value: value
-        }, {method: "POST"}).then(() => {
-            resolve();
-        }, reject);
-    });
-}
-
-const log = (text = "") => {
-    if (cronEnabled) {
-        console.log(`[${momentTimezone(new Date()).tz(timezone).format("YYYY-MM-DD HH:mm:ss")}] ${text}`);
-    } else {
-        console.log(text);
-    }
-};
-
-const aliyunExceptionHandler = aliyunApiException => {
+function aliyunExceptionHandler(aliyunApiException) {
     /**
      * @external aliyunApiException.name
      * @see https://help.aliyun.com/document_detail/29809.htm
@@ -120,7 +27,7 @@ const aliyunExceptionHandler = aliyunApiException => {
              * @memberOf aliyunApiException.data
              */
             log(`Error from Aliyun's API endpoint. ${
-                typeof aliyunApiException.data !== "undefined" 
+                typeof aliyunApiException.data !== "undefined"
                 && typeof aliyunApiException.data.Message !== "undefined" ?
                     `(Detail: ${aliyunApiException.data.Message})`
                     : ""
@@ -128,7 +35,37 @@ const aliyunExceptionHandler = aliyunApiException => {
     }
 }
 
-const verifyUpdate = (type = "A") => {
+function add(type = "A", value) {
+    return new Promise((resolve, reject) => {
+        new popCore(popCoreConfig).request("AddDomainRecord", {
+            DomainName: domain,
+            RR: subDomain ? subDomain : "@",
+            Type: type,
+            Value: value
+        }, {method: "POST"}).then(aliyunApiResult => {
+            /**
+             * @external aliyunApiResult.RecordId
+             * @see https://help.aliyun.com/document_detail/29772.html
+             */
+            resolve(aliyunApiResult.RecordId);
+        }, reject);
+    });
+}
+
+function update(recordId = "", type = "A", value) {
+    return new Promise((resolve, reject) => {
+        new popCore(popCoreConfig).request("UpdateDomainRecord", {
+            RR: subDomain ? subDomain : "@",
+            RecordId: recordId,
+            Type: type,
+            Value: value
+        }, {method: "POST"}).then(() => {
+            resolve();
+        }, reject);
+    });
+}
+
+export function verifyUpdate(type = "A") {
     new popCore(popCoreConfig).request("DescribeSubDomainRecords", {
         DomainName: domain,
         SubDomain: `${subDomain ? subDomain + "." : ""}${domain}`,
@@ -143,7 +80,7 @@ const verifyUpdate = (type = "A") => {
                 log(`No ${type} record is defined with subdomain "${subDomain ? subDomain : "@"}". Creating ...`);
                 currentIp(type === "AAAA").then(currentIpAddr => {
                     log(`Current ${type === "AAAA" ? "IPv6" : "IPv4"} address is ${currentIpAddr}.`);
-                    addRecord(type, currentIpAddr)
+                    add(type, currentIpAddr)
                         .then(recordId => log(`Created record with RecordId = ${recordId}.`))
                         .catch(aliyunExceptionHandler);
                 }).catch(() => {
@@ -180,7 +117,7 @@ const verifyUpdate = (type = "A") => {
                         type === "AAAA" ? "IPv6" : "IPv4"
                     } address is ${currentIpAddr}, ${needUpdate ? "updating ..." : "do nothing."}`);
                     if (needUpdate) {
-                        updateRecord(recordId, type, currentIpAddr)
+                        update(recordId, type, currentIpAddr)
                             .then(() => log(`Record updated from ${recordValue} to ${currentIpAddr}.`))
                             .catch(aliyunExceptionHandler);
                     }
@@ -204,30 +141,3 @@ const verifyUpdate = (type = "A") => {
         }
     }, aliyunExceptionHandler);
 }
-
-if (typeof domain === "undefined" || domain === "") {
-    log("Domain not provided.");
-    process.exit(1);
-}
-
-["accessKeyId", "accessKeySecret"].forEach(item => {
-    if (typeof popCoreConfig[item] === "undefined" || popCoreConfig[item] === "") {
-        log(`${item} not provided.`);
-        process.exit(1);
-    }
-});
-
-if (cronEnabled) {
-    updateType.forEach(type => cron.schedule(cronExpression, () => {
-        verifyUpdate(type);
-    }, {
-        scheduled: true,
-        timezone: timezone
-    }));
-    log(`Cron task scheduled at "${cronExpression}".`);
-} else {
-    log("Invalid cron expression.");
-    process.exit(2);
-}
-
-updateType.forEach(verifyUpdate);

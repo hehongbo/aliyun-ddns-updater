@@ -22,31 +22,35 @@ kind: pipeline
 name: Publish_to_DockerHub
 type: docker
 
-environment:
-  IMAGE_NAME: aliyun-ddns-updater
-
 trigger:
   event:
   - tag
-  - cron
 
 steps:
 - name: prepare
-  image: docker:19
+  image: docker:20
   volumes:
   - name: docker.sock
     path: /var/run/docker.sock
   commands:
   - docker pull node:alpine
 - name: build
-  image: docker:19
+  image: docker:20
   volumes:
   - name: docker.sock
     path: /var/run/docker.sock
+  environment:
+    DOCKERHUB_USERNAME:
+      from_secret: DOCKERHUB_USERNAME
   commands:
-  - docker build -t $IMAGE_NAME .
+  - |
+    echo '
+      FROM node:alpine
+      RUN npm install -g aliyun-ddns-updater
+      CMD ["aliyun-ddns-updater"]
+    ' | docker build -t $DOCKERHUB_USERNAME/aliyun-ddns-updater -
 - name: push
-  image: docker:19
+  image: docker:20
   volumes:
   - name: docker.sock
     path: /var/run/docker.sock
@@ -56,12 +60,14 @@ steps:
     DOCKERHUB_PASSWORD:
       from_secret: DOCKERHUB_PASSWORD
   commands:
-  - docker tag $IMAGE_NAME $DOCKERHUB_USERNAME/$IMAGE_NAME
   - docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASSWORD
-  - docker push $DOCKERHUB_USERNAME/$IMAGE_NAME
-  # - docker rmi $IMAGE_NAME $DOCKERHUB_USERNAME/$IMAGE_NAME # Cache can be reused.
+  - docker push $DOCKERHUB_USERNAME/aliyun-ddns-updater
+  - docker rmi $DOCKERHUB_USERNAME/aliyun-ddns-updater
 
 volumes:
 - name: docker.sock
   host:
     path: /var/run/docker.sock
+
+depends_on:
+- Publish_to_NPM

@@ -1,5 +1,7 @@
 # Aliyun DDNS Updater
 
+![npm version](https://img.shields.io/npm/v/aliyun-ddns-updater)
+
 A DDNS client for Aliyun's DNS service. It will look for the device's public IP addresses and update the DNS record with Aliyun's API.
 
 ## Usage
@@ -49,14 +51,14 @@ The application will look for IP addresses through a public lookup service (by d
 
 ## All Environment variables
 
-| Variable            | Required  | Description                                                                                               | Default                             |
-| :------------------ | :-------- | :-------------------------------------------------------------------------------------------------------- | :---------------------------------- |
-| `DOMAIN`            | YES       | The domain (top-level part) to update.                                                                    |                                     |
-| `SUB_DOMAIN`        |           | The subdomain to update. Leave **unset** to update the top-level domain.                                  |                                     |
-| `AK_ID`             | YES       | Aliyun's accessKeyId.                                                                                     |                                     |
-| `AK_SECRET`         | YES       | Aliyun's accessKeySecret.                                                                                 |                                     |
-| `UPDATE_V6`         |           | Update the AAAA record with your IPv6 address. Set to `ENABLED` if needed, or `ONLY` to update only IPv6. |                                     |
-| `CRON`              |           | Cron expression to control the timing of update tasks.                                                    |                                     |
-| `TIMEZONE`          |           | In which timezone should the application executing the cron task.                                         | `Etc/UTC`                           |
-| `IP_LOOKUP_SERVICE` |           | The URL of IP lookup service.                                                                             | `https://bot.whatismyipaddress.com` |
-| `IP_LOOKUP_TIMEOUT` |           | Maximum time to wait (in millisecond) for the lookup service return an IP address.                        | `3000`                              |
+| Variable            | Required | Description                                                                                               | Default                             |
+|:--------------------|:---------|:----------------------------------------------------------------------------------------------------------|:------------------------------------|
+| `DOMAIN`            | YES      | The domain (top-level part) to update.                                                                    |                                     |
+| `SUB_DOMAIN`        |          | The subdomain to update. Leave **unset** to update the top-level domain.                                  |                                     |
+| `AK_ID`             | YES      | Aliyun's accessKeyId.                                                                                     |                                     |
+| `AK_SECRET`         | YES      | Aliyun's accessKeySecret.                                                                                 |                                     |
+| `UPDATE_V6`         |          | Update the AAAA record with your IPv6 address. Set to `ENABLED` if needed, or `ONLY` to update only IPv6. |                                     |
+| `CRON`              |          | Cron expression to control the timing of update tasks.                                                    |                                     |
+| `TIMEZONE`          |          | In which timezone should the application executing the cron task.                                         | `Etc/UTC`                           |
+| `IP_LOOKUP_SERVICE` |          | The URL of IP lookup service.                                                                             | `https://bot.whatismyipaddress.com` |
+| `IP_LOOKUP_TIMEOUT` |          | Maximum time to wait (in millisecond) for the lookup service return an IP address.                        | `3000`                              |
