@@ -1,12 +1,11 @@
 {
   "name": "aliyun-ddns-updater",
   "type": "module",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A DDNS client for Aliyun's DNS service.",
   "main": "aliyun-ddns-updater",
   "dependencies": {
     "@alicloud/pop-core": "^1.7.10",
-    "minimist": "^1.2.5",
     "moment-timezone": "^0.5.34",
     "node-cron": "^3.0.0"
   },
