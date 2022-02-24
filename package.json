@@ -22,10 +22,7 @@
   ],
   "files": [
     "index.mjs",
-    "current-ip.mjs",
-    "record.mjs",
-    "log.mjs",
-    "config.mjs"
+    "lib"
   ],
   "bin": {
     "aliyun-ddns-updater": "index.mjs"

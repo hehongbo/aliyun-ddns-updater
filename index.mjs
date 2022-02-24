@@ -2,15 +2,15 @@
 
 import cron from "node-cron";
 
-import {verifyUpdate} from "./record.mjs";
-import {log} from "./log.mjs";
+import {verifyUpdate} from "./lib/record.mjs";
+import {log} from "./lib/log.mjs";
 
 import {
     timezone,
     cronExpression,
     cronEnabled,
     updateType
-} from "./config.mjs"
+} from "./lib/config.mjs"
 
 if (cronEnabled) {
     updateType.forEach(type => cron.schedule(cronExpression, () => {
